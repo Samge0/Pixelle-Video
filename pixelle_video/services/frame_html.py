@@ -29,6 +29,7 @@ import os
 import re
 import tempfile
 import uuid
+import asyncio
 from typing import Dict, Any, Optional
 from pathlib import Path
 from loguru import logger
@@ -39,10 +40,10 @@ from pixelle_video.utils.template_util import parse_template_size
 class HTMLFrameGenerator:
     """
     HTML-based frame generator
-    
+
     Renders HTML templates to frame images with variable substitution.
     Uses Playwright for reliable headless browser rendering.
-    
+
     Usage:
         >>> generator = HTMLFrameGenerator("templates/modern.html")
         >>> frame_path = await generator.generate_frame(
@@ -52,9 +53,6 @@ class HTMLFrameGenerator:
         ...     ext={"content_title": "Sample Title", "content_author": "Author Name"}
         ... )
     """
-    
-    _browser = None
-    _playwright = None
 
     def __init__(self, template_path: str):
         """
@@ -304,33 +302,127 @@ class HTMLFrameGenerator:
         
         return re.sub(PARAM_PATTERN, replacer, html)
 
+    # Class-level browser management with lock for thread safety
+    _browser = None
+    _playwright = None
+    _browser_lock = asyncio.Lock()
+    _browser_init_attempts = 0
+    _max_init_attempts = 3
+
     @classmethod
     async def _ensure_browser(cls):
-        """Lazily initialize a shared Playwright browser instance"""
-        if cls._browser is None or not cls._browser.is_connected():
+        """
+        Lazily initialize a shared Playwright browser instance with retry and validation
+
+        Enhanced with:
+        - Connection validation before returning
+        - Automatic retry on failure
+        - Browser rebuild on disconnection
+        """
+        async with cls._browser_lock:
+            # Try to use existing browser if it's healthy
+            if cls._browser is not None:
+                try:
+                    # Verify browser is still connected
+                    if await cls._validate_browser_connection():
+                        return cls._browser
+                    else:
+                        logger.warning("Browser disconnected, will rebuild...")
+                        await cls._cleanup_browser()
+                except Exception as e:
+                    logger.warning(f"Browser validation failed: {e}, will rebuild...")
+                    await cls._cleanup_browser()
+
+            # Initialize new browser with retry
             from playwright.async_api import async_playwright
-            cls._playwright = await async_playwright().start()
-            cls._browser = await cls._playwright.chromium.launch(
-                args=[
-                    '--no-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-gpu',
-                    '--disable-extensions',
-                ]
-            )
-            logger.debug("Initialized Playwright Chromium browser")
-        return cls._browser
+
+            for attempt in range(1, cls._max_init_attempts + 1):
+                try:
+                    cls._playwright = await async_playwright().start()
+                    cls._browser = await cls._playwright.chromium.launch(
+                        args=[
+                            '--no-sandbox',
+                            '--disable-dev-shm-usage',
+                            '--disable-gpu',
+                            '--disable-extensions',
+                            '--disable-dev-shm-usage',
+                            '--remote-debugging-port=0',  # Disable remote debugging
+                        ]
+                    )
+
+                    # Validate the new browser
+                    if await cls._validate_browser_connection():
+                        cls._browser_init_attempts = 0
+                        logger.info("✓ Playwright Chromium browser initialized successfully")
+                        return cls._browser
+                    else:
+                        raise RuntimeError("Browser validation failed after launch")
+
+                except Exception as e:
+                    logger.warning(f"Browser init attempt {attempt}/{cls._max_init_attempts} failed: {e}")
+                    await cls._cleanup_browser()
+
+                    if attempt < cls._max_init_attempts:
+                        # Exponential backoff before retry
+                        await asyncio.sleep(2 ** attempt)
+                    else:
+                        cls._browser_init_attempts += 1
+                        raise RuntimeError(f"Failed to initialize browser after {cls._max_init_attempts} attempts: {e}")
+
+    @classmethod
+    async def _validate_browser_connection(cls) -> bool:
+        """
+        Validate that the browser connection is healthy
+
+        Returns:
+            True if browser is connected and usable, False otherwise
+        """
+        if cls._browser is None:
+            return False
+
+        try:
+            # Quick check: try to get browser version
+            version = cls._browser.version
+            return version is not None
+        except Exception as e:
+            logger.debug(f"Browser validation check failed: {e}")
+            return False
+
+    @classmethod
+    async def _cleanup_browser(cls):
+        """Clean up browser and playwright resources"""
+        try:
+            if cls._browser:
+                try:
+                    await cls._browser.close()
+                except Exception as e:
+                    logger.debug(f"Error closing browser: {e}")
+                cls._browser = None
+
+            if cls._playwright:
+                try:
+                    await cls._playwright.stop()
+                except Exception as e:
+                    logger.debug(f"Error stopping playwright: {e}")
+                cls._playwright = None
+        except Exception as e:
+            logger.debug(f"Error during cleanup: {e}")
 
     @classmethod
     async def close_browser(cls):
         """Shutdown the shared browser instance (call on app teardown)"""
-        if cls._browser:
-            await cls._browser.close()
+        async with cls._browser_lock:
+            await cls._cleanup_browser()
+            logger.info("Playwright browser resources cleaned up")
+
+    @classmethod
+    async def rebuild_browser(cls):
+        """Force rebuild the browser instance (call after errors)"""
+        async with cls._browser_lock:
+            logger.info("Rebuilding browser instance...")
+            await cls._cleanup_browser()
             cls._browser = None
-        if cls._playwright:
-            await cls._playwright.stop()
-            cls._playwright = None
-            logger.debug("Playwright browser closed")
+            # Next _ensure_browser call will initialize fresh
 
     async def generate_frame(
         self,
@@ -338,43 +430,49 @@ class HTMLFrameGenerator:
         text: str,
         image: str,
         ext: Optional[Dict[str, Any]] = None,
-        output_path: Optional[str] = None
+        output_path: Optional[str] = None,
+        max_retries: int = 3
     ) -> str:
         """
-        Generate frame from HTML template
-        
+        Generate frame from HTML template with retry mechanism
+
         Video size is automatically determined from template path during initialization.
-        
+
         Args:
             title: Video title
             text: Narration text for this frame
             image: Path to AI-generated image (supports relative path, absolute path, or HTTP URL)
             ext: Additional data (content_title, content_author, etc.)
             output_path: Custom output path (auto-generated if None)
-        
+            max_retries: Maximum retry attempts on browser failure (default: 3)
+
         Returns:
             Path to generated frame image
+
+        Raises:
+            RuntimeError: If all retry attempts fail
         """
+        # Process image path
         if image and not image.startswith(('http://', 'https://', 'data:', 'file://')):
             image_path = Path(image)
             if not image_path.is_absolute():
                 image_path = Path.cwd() / image
-            
+
             if not image_path.exists():
                 logger.warning(f"Image file not found: {image_path}")
             else:
                 image = image_path.as_uri()
                 logger.debug(f"Converted image path to: {image}")
-        
+
         context = {
             "title": title,
             "text": text,
             "image": image,
         }
-        
+
         if ext:
             context.update(ext)
-        
+
         html = self._replace_parameters(self.template, context)
 
         if output_path is None:
@@ -383,32 +481,73 @@ class HTMLFrameGenerator:
             output_path = get_output_path(output_filename)
         else:
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        
+
         logger.debug(f"Rendering HTML template to {output_path} (size: {self.width}x{self.height})")
-        tmp_html_path = None
-        try:
-            browser = await self._ensure_browser()
-            page = await browser.new_page(
-                viewport={'width': self.width, 'height': self.height},
-                device_scale_factor=1,
-            )
+
+        # Retry loop for browser operations
+        for attempt in range(1, max_retries + 1):
+            tmp_html_path = None
+            page = None
             try:
-                # Write HTML to a temp file and navigate via file:// URL so that
-                # local file:// image references are loaded under the same origin.
+                # Get or create browser instance
+                browser = await self._ensure_browser()
+
+                # Create new page
+                page = await browser.new_page(
+                    viewport={'width': self.width, 'height': self.height},
+                    device_scale_factor=1,
+                )
+
+                # Write HTML to temp file and navigate
                 fd, tmp_html_path = tempfile.mkstemp(suffix='.html', prefix='pv_frame_')
                 with os.fdopen(fd, 'w', encoding='utf-8') as f:
                     f.write(html)
-                
+
                 await page.goto(Path(tmp_html_path).as_uri(), wait_until='networkidle')
                 await page.screenshot(path=output_path, type='png', omit_background=True)
-            finally:
-                await page.close()
+
+                logger.info(f"Frame generated: {output_path}")
+                return output_path
+
+            except Exception as e:
+                logger.warning(f"Frame generation attempt {attempt}/{max_retries} failed: {e}")
+
+                # Clean up page if it exists
+                if page:
+                    try:
+                        await page.close()
+                    except Exception:
+                        pass
+
+                # Clean up temp file
                 if tmp_html_path and os.path.exists(tmp_html_path):
-                    os.unlink(tmp_html_path)
-            
-            logger.info(f"Frame generated: {output_path}")
-            return output_path
-            
-        except Exception as e:
-            logger.error(f"Failed to render HTML template: {e}")
-            raise RuntimeError(f"HTML rendering failed: {e}")
+                    try:
+                        os.unlink(tmp_html_path)
+                    except Exception:
+                        pass
+
+                # If not last attempt, rebuild browser and retry
+                if attempt < max_retries:
+                    logger.info(f"Rebuilding browser and retrying...")
+                    await self.rebuild_browser()
+                    # Exponential backoff
+                    await asyncio.sleep(2 ** attempt)
+                else:
+                    # All attempts failed
+                    logger.error(f"Failed to render HTML template after {max_retries} attempts")
+                    raise RuntimeError(f"HTML rendering failed after {max_retries} attempts: {e}")
+
+            finally:
+                # Ensure page is closed
+                if page:
+                    try:
+                        await page.close()
+                    except Exception:
+                        pass
+
+                # Ensure temp file is cleaned up
+                if tmp_html_path and os.path.exists(tmp_html_path):
+                    try:
+                        os.unlink(tmp_html_path)
+                    except Exception:
+                        pass
