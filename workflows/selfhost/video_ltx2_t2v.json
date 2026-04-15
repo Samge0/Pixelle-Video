@@ -1,0 +1,359 @@
+{
+    "153": {
+      "inputs": {
+        "cfg": 1,
+        "model": [
+          "346",
+          0
+        ],
+        "positive": [
+          "164",
+          0
+        ],
+        "negative": [
+          "164",
+          1
+        ]
+      },
+      "class_type": "CFGGuider",
+      "_meta": {
+        "title": "CFG引导器"
+      }
+    },
+    "154": {
+      "inputs": {
+        "sampler_name": "euler"
+      },
+      "class_type": "KSamplerSelect",
+      "_meta": {
+        "title": "K采样器选择"
+      }
+    },
+    "161": {
+      "inputs": {
+        "noise": [
+          "178",
+          0
+        ],
+        "guider": [
+          "153",
+          0
+        ],
+        "sampler": [
+          "154",
+          0
+        ],
+        "sigmas": [
+          "324",
+          0
+        ],
+        "latent_image": [
+          "166",
+          0
+        ]
+      },
+      "class_type": "SamplerCustomAdvanced",
+      "_meta": {
+        "title": "自定义采样器（高级）"
+      }
+    },
+    "164": {
+      "inputs": {
+        "frame_rate": 24,
+        "positive": [
+          "169",
+          0
+        ],
+        "negative": [
+          "165",
+          0
+        ]
+      },
+      "class_type": "LTXVConditioning",
+      "_meta": {
+        "title": "LTXV条件"
+      }
+    },
+    "165": {
+      "inputs": {
+        "text": "blurry, out of focus, overexposed, underexposed, low contrast, washed out colors, excessive noise, grainy texture, poor lighting, flickering, motion blur, distorted proportions, unnatural skin tones, deformed facial features, asymmetrical face, missing facial features, extra limbs, disfigured hands, wrong hand count, artifacts around text, unreadable text on shirt or hat, incorrect lettering on cap (“PNTR”), incorrect t-shirt slogan (“JUST DO IT”), missing microphone, misplaced microphone, inconsistent perspective, camera shake, incorrect depth of field, background too sharp, background clutter, distracting reflections, harsh shadows, inconsistent lighting direction, color banding, cartoonish rendering, 3D CGI look, unrealistic materials, uncanny valley effect, incorrect ethnicity, wrong gender, exaggerated expressions, smiling, laughing, exaggerated sadness, wrong gaze direction, eyes looking at camera, mismatched lip sync, silent or muted audio, distorted voice, robotic voice, echo, background noise, off-sync audio, missing sniff sounds, incorrect dialogue, added dialogue, repetitive speech, jittery movement, awkward pauses, incorrect timing, unnatural transitions, inconsistent framing, tilted camera, missing door or shelves, missing shallow depth of field, flat lighting, inconsistent tone, cinematic oversaturation, stylized filters, or AI artifacts.",
+        "clip": [
+          "348",
+          0
+        ]
+      },
+      "class_type": "CLIPTextEncode",
+      "_meta": {
+        "title": "CLIP文本编码"
+      }
+    },
+    "166": {
+      "inputs": {
+        "video_latent": [
+          "311",
+          0
+        ],
+        "audio_latent": [
+          "314",
+          0
+        ]
+      },
+      "class_type": "LTXVConcatAVLatent",
+      "_meta": {
+        "title": "LTXVConcatAVLatent"
+      }
+    },
+    "169": {
+      "inputs": {
+        "text": "A cat running on grass, cinematic lighting",
+        "clip": [
+          "348",
+          0
+        ]
+      },
+      "class_type": "CLIPTextEncode",
+      "_meta": {
+        "title": "$prompt.text!"
+      }
+    },
+    "178": {
+      "inputs": {
+        "noise_seed": 123456789
+      },
+      "class_type": "RandomNoise",
+      "_meta": {
+        "title": "RandomNoise"
+      }
+    },
+    "190": {
+      "inputs": {
+        "frame_rate": 24,
+        "loop_count": 0,
+        "filename_prefix": "LTX-2",
+        "format": "video/h264-mp4",
+        "pix_fmt": "yuv420p",
+        "crf": 19,
+        "save_metadata": true,
+        "trim_to_audio": false,
+        "pingpong": false,
+        "save_output": true,
+        "images": [
+          "278",
+          0
+        ],
+        "audio": [
+          "294",
+          0
+        ]
+      },
+      "class_type": "VHS_VideoCombine",
+      "_meta": {
+        "title": "Video Combine 🎥🅥🅗🅢"
+      }
+    },
+    "234": {
+      "inputs": {
+        "tile_size": 512,
+        "overlap": 64,
+        "temporal_size": 4096,
+        "temporal_overlap": 8,
+        "samples": [
+          "245",
+          0
+        ],
+        "vae": [
+          "347",
+          0
+        ]
+      },
+      "class_type": "VAEDecodeTiled",
+      "_meta": {
+        "title": "VAE解码（分块）"
+      }
+    },
+    "245": {
+      "inputs": {
+        "av_latent": [
+          "161",
+          0
+        ]
+      },
+      "class_type": "LTXVSeparateAVLatent",
+      "_meta": {
+        "title": "LTXVSeparateAVLatent"
+      }
+    },
+    "278": {
+      "inputs": {
+        "anything": [
+          "234",
+          0
+        ]
+      },
+      "class_type": "easy cleanGpuUsed",
+      "_meta": {
+        "title": "清理显存占用"
+      }
+    },
+    "294": {
+      "inputs": {
+        "samples": [
+          "245",
+          1
+        ],
+        "audio_vae": [
+          "349",
+          0
+        ]
+      },
+      "class_type": "LTXVAudioVAEDecode",
+      "_meta": {
+        "title": "LTXV Audio VAE Decode"
+      }
+    },
+    "307": {
+      "inputs": {
+        "value": 24
+      },
+      "class_type": "PrimitiveInt",
+      "_meta": {
+        "title": "Frame Rate(int)"
+      }
+    },
+    "309": {
+      "inputs": {
+        "value": 97
+      },
+      "class_type": "INTConstant",
+      "_meta": {
+        "title": "$frames.value"
+      }
+    },
+    "311": {
+      "inputs": {
+        "width": [
+          "313",
+          0
+        ],
+        "height": [
+          "312",
+          0
+        ],
+        "length": [
+          "315",
+          0
+        ],
+        "batch_size": 1
+      },
+      "class_type": "EmptyLTXVLatentVideo",
+      "_meta": {
+        "title": "空Latent视频（LTXV）"
+      }
+    },
+    "312": {
+      "inputs": {
+        "value": 468
+      },
+      "class_type": "INTConstant",
+      "_meta": {
+        "title": "INT Constant-分辨率高"
+      }
+    },
+    "313": {
+      "inputs": {
+        "value": 832
+      },
+      "class_type": "INTConstant",
+      "_meta": {
+        "title": "INT Constant-分辨率宽"
+      }
+    },
+    "314": {
+      "inputs": {
+        "frames_number": [
+          "315",
+          0
+        ],
+        "frame_rate": [
+          "307",
+          0
+        ],
+        "batch_size": 1,
+        "audio_vae": [
+          "349",
+          0
+        ]
+      },
+      "class_type": "LTXVEmptyLatentAudio",
+      "_meta": {
+        "title": "LTXV Empty Latent Audio"
+      }
+    },
+    "315": {
+      "inputs": {
+        "value": [
+          "309",
+          0
+        ]
+      },
+      "class_type": "PrimitiveInt",
+      "_meta": {
+        "title": "Length"
+      }
+    },
+    "324": {
+      "inputs": {
+        "steps": 8,
+        "max_shift": 2.05,
+        "base_shift": 0.95,
+        "stretch": true,
+        "terminal": 0.1,
+        "latent": [
+          "166",
+          0
+        ]
+      },
+      "class_type": "LTXVScheduler",
+      "_meta": {
+        "title": "LTXV调度器"
+      }
+    },
+    "346": {
+      "inputs": {
+        "unet_name": "ltx-2-19b-distilled_Q4_K_M.gguf"
+      },
+      "class_type": "UnetLoaderGGUF",
+      "_meta": {
+        "title": "Unet Loader (GGUF)"
+      }
+    },
+    "347": {
+      "inputs": {
+        "vae_name": "LTX2_video_vae_bf16.safetensors"
+      },
+      "class_type": "VAELoader",
+      "_meta": {
+        "title": "加载VAE"
+      }
+    },
+    "348": {
+      "inputs": {
+        "clip_name1": "gemma_3_12B_it_fp8_e4m3fn.safetensors",
+        "clip_name2": "ltx-2-19b-embeddings_connector_distill_bf16.safetensors",
+        "type": "ltxv"
+      },
+      "class_type": "DualCLIPLoaderGGUF",
+      "_meta": {
+        "title": "DualCLIPLoader (GGUF)"
+      }
+    },
+    "349": {
+      "inputs": {
+        "ckpt_name": "LTX2_audio_vae_bf16.safetensors"
+      },
+      "class_type": "LTXVAudioVAELoader",
+      "_meta": {
+        "title": "LTXV Audio VAE Loader"
+      }
+    }
+}
