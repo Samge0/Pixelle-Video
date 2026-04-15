@@ -272,39 +272,40 @@ async def generate_image_prompts(
     min_words: int = 30,
     max_words: int = 60,
     batch_size: int = 10,
-    max_retries: int = 3,
+    max_retries: int = 10,
     progress_callback: Optional[callable] = None
 ) -> List[str]:
     """
-    Generate image prompts from narrations (with batching and retry)
-    
+    Generate image prompts from narrations (with batching and exponential backoff retry)
+
     Args:
         llm_service: LLM service instance
         narrations: List of narrations
         min_words: Min image prompt length
         max_words: Max image prompt length
         batch_size: Max narrations per batch (default: 10)
-        max_retries: Max retry attempts per batch (default: 3)
+        max_retries: Max retry attempts per batch (default: 10, with exponential backoff)
         progress_callback: Optional callback(completed, total, message) for progress updates
-    
+
     Returns:
         List of image prompts (base prompts, without prefix applied)
     """
     from pixelle_video.prompts import build_image_prompt_prompt
-    
-    logger.info(f"Generating image prompts for {len(narrations)} narrations (batch_size={batch_size})")
-    
+    import asyncio
+
+    logger.info(f"Generating image prompts for {len(narrations)} narrations (batch_size={batch_size}, max_retries={max_retries})")
+
     # Split narrations into batches
     batches = [narrations[i:i + batch_size] for i in range(0, len(narrations), batch_size)]
     logger.info(f"Split into {len(batches)} batches")
-    
+
     all_prompts = []
-    
+
     # Process each batch
     for batch_idx, batch_narrations in enumerate(batches, 1):
         logger.info(f"Processing batch {batch_idx}/{len(batches)} ({len(batch_narrations)} narrations)")
-        
-        # Retry logic for this batch
+
+        # Retry logic with exponential backoff
         for attempt in range(1, max_retries + 1):
             try:
                 # Generate prompts for this batch
@@ -313,23 +314,23 @@ async def generate_image_prompts(
                     min_words=min_words,
                     max_words=max_words
                 )
-                
+
                 response = await llm_service(
                     prompt=prompt,
                     temperature=0.7,
                     max_tokens=8192
                 )
-                
+
                 logger.debug(f"Batch {batch_idx} attempt {attempt}: LLM response length: {len(response)} chars")
-                
+
                 # Parse JSON
                 result = _parse_json(response)
-                
+
                 if "image_prompts" not in result:
                     raise KeyError("Invalid response format: missing 'image_prompts'")
-                
+
                 batch_prompts = result["image_prompts"]
-                
+
                 # Validate count
                 if len(batch_prompts) != len(batch_narrations):
                     error_msg = (
@@ -338,17 +339,20 @@ async def generate_image_prompts(
                         f"  Got: {len(batch_prompts)} prompts"
                     )
                     logger.warning(error_msg)
-                    
+
                     if attempt < max_retries:
-                        logger.info(f"Retrying batch {batch_idx}...")
+                        # Exponential backoff: 2^attempt seconds, max 30 seconds
+                        backoff_time = min(2 ** attempt, 30)
+                        logger.info(f"Retrying batch {batch_idx} in {backoff_time}s...")
+                        await asyncio.sleep(backoff_time)
                         continue
                     else:
                         raise ValueError(error_msg)
-                
+
                 # Success!
                 logger.info(f"✅ Batch {batch_idx} completed successfully ({len(batch_prompts)} prompts)")
                 all_prompts.extend(batch_prompts)
-                
+
                 # Report progress
                 if progress_callback:
                     progress_callback(
@@ -356,15 +360,21 @@ async def generate_image_prompts(
                         len(narrations),
                         f"Batch {batch_idx}/{len(batches)} completed"
                     )
-                
+
                 break
-                
-            except json.JSONDecodeError as e:
-                logger.error(f"Batch {batch_idx} JSON parse error (attempt {attempt}/{max_retries}): {e}")
+
+            except (json.JSONDecodeError, KeyError) as e:
+                logger.warning(f"Batch {batch_idx} error (attempt {attempt}/{max_retries}): {e}")
+
                 if attempt >= max_retries:
+                    logger.error(f"Batch {batch_idx} failed after {max_retries} attempts")
                     raise
-                logger.info(f"Retrying batch {batch_idx}...")
-    
+
+                # Exponential backoff: 2^attempt seconds, max 30 seconds
+                backoff_time = min(2 ** attempt, 30)
+                logger.info(f"Retrying batch {batch_idx} in {backoff_time}s (exponential backoff)...")
+                await asyncio.sleep(backoff_time)
+
     logger.info(f"✅ Generated {len(all_prompts)} image prompts")
     return all_prompts
 

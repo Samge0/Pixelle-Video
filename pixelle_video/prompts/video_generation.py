@@ -106,15 +106,15 @@ def build_video_prompt_prompt(
 ) -> str:
     """
     Build video prompt generation prompt
-    
+
     Args:
         narrations: List of narrations
         min_words: Minimum word count
         max_words: Maximum word count
-    
+
     Returns:
         Formatted prompt for LLM
-    
+
     Example:
         >>> build_video_prompt_prompt(narrations, 50, 100)
     """
@@ -123,11 +123,43 @@ def build_video_prompt_prompt(
         ensure_ascii=False,
         indent=2
     )
-    
-    return VIDEO_PROMPT_GENERATION_PROMPT.format(
+
+    base_prompt = VIDEO_PROMPT_GENERATION_PROMPT.format(
         narrations_json=narrations_json,
         narrations_count=len(narrations),
         min_words=min_words,
         max_words=max_words
     )
+
+    # 追加增强提示，确保模型返回纯 JSON 格式
+    enhanced_prompt = base_prompt + """
+
+---
+
+# CRITICAL OUTPUT INSTRUCTIONS
+
+You must output **ONLY** a valid JSON object. Follow these rules strictly:
+
+1. **No markdown code blocks** - Do NOT wrap your output in ```json``` or ```
+2. **No explanations** - Do NOT add any text before or after the JSON
+3. **No comments** - The JSON should not contain any comments
+4. **Pure JSON only** - Your entire response must be a single valid JSON object
+
+Example of CORRECT output:
+{{
+  "video_prompts": [
+    "First video prompt here",
+    "Second video prompt here"
+  ]
+}}
+
+Example of INCORRECT output:
+```json
+{{ "video_prompts": [...] }}
+```
+
+**Remember: Output ONLY the raw JSON object. Start your response directly with {{ and end with }}. No other text.**
+"""
+
+    return enhanced_prompt
 

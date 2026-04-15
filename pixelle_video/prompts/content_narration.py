@@ -85,20 +85,52 @@ def build_content_narration_prompt(
 ) -> str:
     """
     Build content refinement narration prompt
-    
+
     Args:
         content: User-provided content
         n_storyboard: Number of storyboard frames
         min_words: Minimum word count
         max_words: Maximum word count
-    
+
     Returns:
         Formatted prompt
     """
-    return CONTENT_NARRATION_PROMPT.format(
+    base_prompt = CONTENT_NARRATION_PROMPT.format(
         content=content,
         n_storyboard=n_storyboard,
         min_words=min_words,
         max_words=max_words
     )
+
+    # 追加增强提示，确保模型返回纯 JSON 格式
+    enhanced_prompt = base_prompt + """
+
+---
+
+# CRITICAL OUTPUT INSTRUCTIONS
+
+You must output **ONLY** a valid JSON object. Follow these rules strictly:
+
+1. **No markdown code blocks** - Do NOT wrap your output in ```json``` or ```
+2. **No explanations** - Do NOT add any text before or after the JSON
+3. **No comments** - The JSON should not contain any comments
+4. **Pure JSON only** - Your entire response must be a single valid JSON object
+
+Example of CORRECT output:
+{{
+  "narrations": [
+    "First narration here",
+    "Second narration here"
+  ]
+}}
+
+Example of INCORRECT output:
+```json
+{{ "narrations": [...] }}
+```
+
+**Remember: Output ONLY the raw JSON object. Start your response directly with {{ and end with }}. No other text.**
+"""
+
+    return enhanced_prompt
 
