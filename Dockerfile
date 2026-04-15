@@ -21,10 +21,12 @@ RUN if [ "$USE_CN_MIRROR" = "true" ]; then \
 # - curl: for health checks and downloads
 # - ffmpeg: for video/audio processing
 # - fonts-noto-cjk: for CJK character support
+# - ca-certificates: for SSL/TLS certificate verification (required by edge-tts)
 RUN apt-get update && apt-get install -y \
     curl \
     ffmpeg \
     fonts-noto-cjk \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv package manager
@@ -38,21 +40,29 @@ RUN if [ "$USE_CN_MIRROR" = "true" ]; then \
 ENV PATH="/root/.local/bin:$PATH"
 RUN uv --version
 
-# Copy dependency files and source code for building
-# Note: pixelle_video is needed for hatchling to build the package
+# Create virtual environment early and install playwright
+# This layer is cached as it doesn't depend on code changes
+RUN export UV_HTTP_TIMEOUT=300 && \
+    uv venv && \
+    if [ "$USE_CN_MIRROR" = "true" ]; then \
+        uv pip install playwright -i https://pypi.tuna.tsinghua.edu.cn/simple; \
+    else \
+        uv pip install playwright; \
+    fi && \
+    uv run playwright install --with-deps chromium
+
+# Copy dependency files and source code
 COPY pyproject.toml uv.lock README.md ./
 COPY pixelle_video ./pixelle_video
 
-# Create virtual environment and install dependencies
+# Install project dependencies
 # Use -i flag to specify mirror when USE_CN_MIRROR=true
 RUN export UV_HTTP_TIMEOUT=300 && \
-    uv venv && \
     if [ "$USE_CN_MIRROR" = "true" ]; then \
         uv pip install -e . -i https://pypi.tuna.tsinghua.edu.cn/simple; \
     else \
         uv pip install -e .; \
-    fi && \
-    playwright install --with-deps chromium
+    fi
 
 # Copy rest of application code
 COPY api ./api

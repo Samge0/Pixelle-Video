@@ -24,6 +24,7 @@ import certifi
 import edge_tts as edge_tts_sdk
 from edge_tts.exceptions import NoAudioReceived
 from loguru import logger
+import aiohttp
 from aiohttp import WSServerHandshakeError, ClientResponseError
 
 
@@ -140,16 +141,12 @@ async def edge_tts(
                 await asyncio.sleep(retry_delay)
             
             try:
-                # Create communicate instance with certifi SSL context
-                if _USE_CERTIFI_SSL:
-                    if attempt == 0:  # Only log info once
-                        logger.debug("Using certifi SSL certificates for secure Edge TTS connection")
-                    # Create SSL context with certifi bundle
-                    import certifi
-                    ssl_context = ssl.create_default_context(cafile=certifi.where())
-                else:
-                    ssl_context = None
-                
+                # Create communicate instance with custom connector to fix SSL issues on Windows
+                if attempt == 0:  # Only log info once
+                    logger.debug("Using custom connector with SSL verification disabled for Edge TTS connection")
+                # Create connector with SSL verification disabled (fixes Windows ProactorEventLoop issues)
+                connector = aiohttp.TCPConnector(ssl=False)
+
                 # Create communicate instance
                 communicate = edge_tts_sdk.Communicate(
                     text=text,
@@ -157,6 +154,7 @@ async def edge_tts(
                     rate=rate,
                     volume=volume,
                     pitch=pitch,
+                    connector=connector,
                 )
                 
                 # Collect audio chunks
@@ -301,8 +299,12 @@ async def list_voices(locale: str = None, retry_count: int = _RETRY_COUNT, retry
                 await asyncio.sleep(retry_delay)
             
             try:
-                # Get all voices (edge-tts handles SSL internally)
-                voices = await edge_tts_sdk.list_voices()
+                # Get all voices with custom connector to fix SSL issues on Windows
+                if attempt == 0:  # Only log info once
+                    logger.debug("Using custom connector with SSL verification disabled for list voices")
+                # Create connector with SSL verification disabled (fixes Windows ProactorEventLoop issues)
+                connector = aiohttp.TCPConnector(ssl=False)
+                voices = await edge_tts_sdk.list_voices(connector=connector)
                 
                 # Filter by locale if specified
                 if locale:
