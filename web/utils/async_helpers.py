@@ -15,6 +15,7 @@ Async helper functions for web UI
 """
 
 import asyncio
+import sys
 import tomllib
 from pathlib import Path
 
@@ -23,6 +24,9 @@ from loguru import logger
 
 def run_async(coro):
     """Run async coroutine in sync context"""
+    if sys.platform == 'win32':
+        # Windows requires ProactorEventLoop for subprocess support
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
     return asyncio.run(coro)
 
 
