@@ -44,6 +44,7 @@ class StoryboardConfig:
     voice_id: Optional[str] = None             # Voice ID (for local: Edge TTS voice ID; for comfyui: workflow-specific)
     tts_workflow: Optional[str] = None         # TTS workflow filename (for ComfyUI mode, None = use default)
     tts_speed: Optional[float] = None          # TTS speed multiplier (0.5-2.0, 1.0 = normal)
+    tts_volume: float = 1.0                    # TTS volume multiplier (0.1-5.0, 1.0 = original volume)
     ref_audio: Optional[str] = None            # Reference audio for voice cloning (ComfyUI mode only)
     
     # Media workflow

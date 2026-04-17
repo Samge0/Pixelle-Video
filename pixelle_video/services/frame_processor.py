@@ -368,7 +368,7 @@ class FrameProcessor:
                 audio=frame.audio_path,
                 output=output_path,
                 replace_audio=True,  # Replace video audio with narration
-                audio_volume=1.0
+                audio_volume=config.tts_volume  # Apply TTS volume at ffmpeg level
             )
             
             # Clean up temp file
@@ -380,12 +380,13 @@ class FrameProcessor:
             # Image workflow: Use composed image directly
             # The asset_default.html template includes the image in the composition
             logger.debug(f"  → Using image-based composition")
-            
+
             segment_path = video_service.create_video_from_image(
                 image=frame.composed_image_path,
                 audio=frame.audio_path,
                 output=output_path,
-                fps=config.video_fps
+                fps=config.video_fps,
+                audio_volume=config.tts_volume  # Apply TTS volume at ffmpeg level
             )
         
         else:

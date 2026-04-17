@@ -58,7 +58,24 @@ def render_style_config(pixelle_video):
             st.caption(tr("tts.mode.local_hint"))
         else:
             st.caption(tr("tts.mode.comfyui_hint"))
-        
+
+        # ================================================================
+        # Common TTS Volume Control (applies to all TTS audio at ffmpeg layer)
+        # ================================================================
+        # Volume is applied AFTER TTS generation (in final video)
+        # Works for both local Edge TTS and ComfyUI TTS workflows
+        tts_volume = st.slider(
+            tr("tts.volume"),
+            min_value=0.1,
+            max_value=5.0,
+            value=1.0,
+            step=0.1,
+            format="%.1fx",
+            help=tr("tts.volume_help"),
+            key="tts_volume"
+        )
+        st.caption(tr("tts.volume_label", volume=f"{tts_volume:.1f}"))
+
         # ================================================================
         # Local Mode UI
         # ================================================================
@@ -866,6 +883,7 @@ def render_style_config(pixelle_video):
         "tts_inference_mode": tts_mode,
         "tts_voice": selected_voice if tts_mode == "local" else None,
         "tts_speed": tts_speed if tts_mode == "local" else None,
+        "tts_volume": tts_volume,  # Common for both local and comfyui modes
         "tts_workflow": tts_workflow_key if tts_mode == "comfyui" else None,
         "ref_audio": str(ref_audio_path) if ref_audio_path else None,
         "frame_template": frame_template,

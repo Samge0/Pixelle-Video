@@ -612,27 +612,30 @@ class VideoService:
         audio: str,
         output: str,
         fps: int = 30,
+        audio_volume: float = 1.0,
     ) -> str:
         """
         Create video from static image and audio
-        
+
         Args:
             image: Image file path
             audio: Audio file path
             output: Output video path
             fps: Frames per second
-        
+            audio_volume: Audio volume multiplier (0.1-5.0, 1.0 = original volume)
+
         Returns:
             Path to the output video
-        
+
         Raises:
             RuntimeError: If FFmpeg execution fails
-        
+
         Note:
             - Image is displayed as static frame for the duration of audio
             - Video duration matches audio duration
             - Useful for creating video segments from storyboard frames
-        
+            - audio_volume is applied at FFmpeg level during video creation
+
         Example:
             >>> compositor.create_video_from_image(
             ...     "frame.png",
@@ -641,18 +644,23 @@ class VideoService:
             ... )
         """
         logger.info("Creating video from image and audio")
-        
+
         try:
             # Get audio duration to ensure exact video duration match
             probe = ffmpeg.probe(audio)
             audio_duration = float(probe['format']['duration'])
             logger.debug(f"Audio duration: {audio_duration:.3f}s")
-            
+
             # Input image with loop (loop=1 means loop indefinitely)
             # Use framerate to set input framerate
             input_image = ffmpeg.input(image, loop=1, framerate=fps)
             input_audio = ffmpeg.input(audio)
-            
+
+            # Apply volume filter if not 1.0
+            if abs(audio_volume - 1.0) > 0.01:
+                logger.debug(f"Applying audio volume filter: {audio_volume:.2f}x")
+                input_audio = input_audio.filter('volume', audio_volume)
+
             # Combine image and audio
             # Use -t to explicitly set video duration = audio duration
             (
@@ -673,7 +681,7 @@ class VideoService:
                 .overwrite_output()
                 .run(capture_stdout=True, capture_stderr=True)
             )
-            
+
             logger.success(f"Video created from image: {output} (duration: {audio_duration:.3f}s)")
             return output
         except ffmpeg.Error as e:

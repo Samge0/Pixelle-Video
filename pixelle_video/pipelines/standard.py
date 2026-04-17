@@ -264,6 +264,7 @@ class StandardPipeline(LinearVideoPipeline):
             voice_id=final_voice_id,
             tts_workflow=final_tts_workflow,
             tts_speed=ctx.params.get("tts_speed", 1.2),
+            tts_volume=ctx.params.get("tts_volume", 1.0),
             ref_audio=ctx.params.get("ref_audio"),
             media_width=ctx.params.get("media_width"),
             media_height=ctx.params.get("media_height"),

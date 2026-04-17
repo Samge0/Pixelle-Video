@@ -57,7 +57,30 @@ def render_style_config(pixelle_video):
             st.caption(tr("tts.mode.local_hint"))
         else:
             st.caption(tr("tts.mode.comfyui_hint"))
-        
+
+        # ================================================================
+        # Common TTS Volume Control (applies to all TTS audio at ffmpeg layer)
+        # ================================================================
+        # Volume is applied AFTER TTS generation (in preview and final video)
+        # Works for both local Edge TTS and ComfyUI TTS workflows
+        tts_volume = st.slider(
+            tr("tts.volume"),
+            min_value=0.1,
+            max_value=5.0,
+            value=1.0,
+            step=0.1,
+            format="%.1fx",
+            help=tr("tts.volume_help"),
+            key="digital_tts_volume"
+        )
+        st.caption(tr("tts.volume_label", volume=f"{tts_volume:.1f}"))
+
+        # Initialize variables for video generation
+        selected_voice = None
+        tts_speed = None
+        tts_workflow_key = None
+        ref_audio_path = None
+
         # ================================================================
         # Local Mode UI
         # ================================================================
@@ -117,13 +140,13 @@ def render_style_config(pixelle_video):
             # Variables for video generation
             tts_workflow_key = None
             ref_audio_path = None
-        
+
         # ================================================================
         # ComfyUI Mode UI
         # ================================================================
         else:  # comfyui mode
             tts_workflow_key = "runninghub/tts_index2.json"  # fallback
-            
+
             # Reference audio upload (optional, for voice cloning)
             ref_audio_file = st.file_uploader(
                 tr("tts.ref_audio"),
@@ -131,24 +154,19 @@ def render_style_config(pixelle_video):
                 help=tr("tts.ref_audio_help"),
                 key="digital_ref_audio_upload"
             )
-            
+
             # Save uploaded ref_audio to temp file if provided
-            ref_audio_path = None
             if ref_audio_file is not None:
                 # Audio preview player (directly play uploaded file)
                 st.audio(ref_audio_file)
-                
+
                 # Save to temp directory
                 temp_dir = Path("temp")
                 temp_dir.mkdir(exist_ok=True)
                 ref_audio_path = temp_dir / f"ref_audio_{ref_audio_file.name}"
                 with open(ref_audio_path, "wb") as f:
                     f.write(ref_audio_file.getbuffer())
-            
-            # Variables for video generation
-            selected_voice = None
-            tts_speed = None
-        
+
         # ================================================================
         # TTS Preview (works for both modes)
         # ================================================================
@@ -199,11 +217,13 @@ def render_style_config(pixelle_video):
                         st.error(tr("tts.preview_failed", error=str(e)))
                         logger.exception(e)
     
-    # Return all style configuration parameters (Simplified version only local TTS)
+    # Return all style configuration parameters
+    # Note: tts_volume applies to ALL TTS audio at ffmpeg merge level
     return {
         "tts_inference_mode": tts_mode,
         "tts_voice": selected_voice if tts_mode == "local" else None,
         "tts_speed": tts_speed if tts_mode == "local" else None,
+        "tts_volume": tts_volume,  # Common for both local and comfyui modes
         "tts_workflow": tts_workflow_key if tts_mode == "comfyui" else None,
         "ref_audio": str(ref_audio_path) if ref_audio_path else None,
     }
