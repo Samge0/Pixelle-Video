@@ -25,10 +25,10 @@ import edge_tts as edge_tts_sdk
 from edge_tts.exceptions import NoAudioReceived
 from loguru import logger
 import aiohttp
-from aiohttp import WSServerHandshakeError, ClientResponseError
+from aiohttp import WSServerHandshakeError, ClientResponseError, ClientConnectorError
 
 
-# Use certifi bundle for SSL verification instead of disabling it
+# Use certifi bundle for SSL verification
 _USE_CERTIFI_SSL = True
 
 # Retry configuration for Edge TTS (to handle 401 errors and NoAudioReceived)
@@ -141,11 +141,15 @@ async def edge_tts(
                 await asyncio.sleep(retry_delay)
             
             try:
-                # Create communicate instance with custom connector to fix SSL issues on Windows
+                # Create communicate instance with custom connector to fix SSL issues
                 if attempt == 0:  # Only log info once
-                    logger.debug("Using custom connector with SSL verification disabled for Edge TTS connection")
-                # Create connector with SSL verification disabled (fixes Windows ProactorEventLoop issues)
-                connector = aiohttp.TCPConnector(ssl=False)
+                    logger.debug("Using custom connector with certifi SSL context for Edge TTS connection")
+                # Create SSL context using certifi for better compatibility
+                ssl_context = ssl.create_default_context(cafile=certifi.where())
+                # Allow slightly more permissive SSL settings for Edge TTS
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+                connector = aiohttp.TCPConnector(ssl=ssl_context)
 
                 # Create communicate instance
                 communicate = edge_tts_sdk.Communicate(
@@ -178,10 +182,10 @@ async def edge_tts(
                 
                 return audio_data
             
-            except (WSServerHandshakeError, ClientResponseError) as e:
+            except (WSServerHandshakeError, ClientResponseError, ClientConnectorError) as e:
                 # Network/authentication errors - retry
                 last_error = e
-                error_code = getattr(e, 'status', 'unknown')
+                error_code = getattr(e, 'status', getattr(e, 'code', 'unknown'))
                 error_msg = str(e)
                 
                 # Log more detailed information for 401 errors
@@ -299,11 +303,15 @@ async def list_voices(locale: str = None, retry_count: int = _RETRY_COUNT, retry
                 await asyncio.sleep(retry_delay)
             
             try:
-                # Get all voices with custom connector to fix SSL issues on Windows
+                # Get all voices with custom connector to fix SSL issues
                 if attempt == 0:  # Only log info once
-                    logger.debug("Using custom connector with SSL verification disabled for list voices")
-                # Create connector with SSL verification disabled (fixes Windows ProactorEventLoop issues)
-                connector = aiohttp.TCPConnector(ssl=False)
+                    logger.debug("Using custom connector with certifi SSL context for list voices")
+                # Create SSL context using certifi for better compatibility
+                ssl_context = ssl.create_default_context(cafile=certifi.where())
+                # Allow slightly more permissive SSL settings for Edge TTS
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+                connector = aiohttp.TCPConnector(ssl=ssl_context)
                 voices = await edge_tts_sdk.list_voices(connector=connector)
                 
                 # Filter by locale if specified
@@ -319,10 +327,10 @@ async def list_voices(locale: str = None, retry_count: int = _RETRY_COUNT, retry
                 logger.info(f"Found {len(voice_ids)} voices" + (f" for locale '{locale}'" if locale else ""))
                 return voice_ids
             
-            except (WSServerHandshakeError, ClientResponseError) as e:
+            except (WSServerHandshakeError, ClientResponseError, ClientConnectorError) as e:
                 # Network/authentication errors - retry
                 last_error = e
-                error_code = getattr(e, 'status', 'unknown')
+                error_code = getattr(e, 'status', getattr(e, 'code', 'unknown'))
                 error_msg = str(e)
                 
                 # Log more detailed information for 401 errors
