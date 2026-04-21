@@ -36,7 +36,7 @@ def generate_filename(text: str, original_filename: str) -> str:
     return new_filename
 
 
-async def generate_video(text: str, slider_value: int, tts_volume: float, url: str = "http://localhost:8501/", headless: bool = False):
+async def generate_video(text: str, slider_value: int, tts_volume: float, url: str = "http://localhost:8501/", headless: bool = False, timeout: int = 600):
     """
     执行视频生成流程
 
@@ -46,6 +46,7 @@ async def generate_video(text: str, slider_value: int, tts_volume: float, url: s
         tts_volume: TTS音量值 (0.1-5.0)
         url: 目标 URL
         headless: 是否无头模式
+        timeout: 等待超时时间（秒），默认 600 (10分钟)
     """
     async with async_playwright() as p:
         print(f"[1/4] 启动浏览器访问 {url}")
@@ -103,11 +104,11 @@ async def generate_video(text: str, slider_value: int, tts_volume: float, url: s
         print("✓ 按钮已点击，等待视频生成...")
 
         # 等待并下载视频
-        print("\n等待视频生成（最长10分钟）...")
+        timeout_minutes = timeout / 60
+        print(f"\n等待视频生成（最长{timeout_minutes:.0f}分钟）...")
         downloaded_files = []
 
         start_time = time.time()
-        timeout = 600  # 10分钟
 
         while time.time() - start_time < timeout:
             # 检查是否有 video 元素
@@ -185,6 +186,8 @@ async def main():
     parser.add_argument("-u", "--url", default="http://localhost:8501/",
                        help="目标URL")
     parser.add_argument("--headless", action="store_true", help="无头模式")
+    parser.add_argument("--timeout", type=int, default=600,
+                       help="等待视频生成的超时时间（秒），默认: 600 (10分钟)")
 
     args = parser.parse_args()
 
@@ -198,7 +201,8 @@ async def main():
         slider_value=args.slider,
         tts_volume=args.volume,
         url=args.url,
-        headless=args.headless
+        headless=args.headless,
+        timeout=args.timeout
     )
 
 
