@@ -1,0 +1,82 @@
+{
+  "37": {
+    "inputs": {
+      "audio": "御姐配音.wav",
+      "audioUI": "/api/view?filename=%E5%BE%A1%E5%A7%90%E9%85%8D%E9%9F%B3.wav&type=input&subfolder=&rand=0.6157391065358435"
+    },
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "加载音频"
+    }
+  },
+  "42": {
+    "inputs": {
+      "audioUI": "/api/view?filename=ComfyUI_temp_kdjno_00001_.flac&type=temp&subfolder=&rand=0.38750242002125324",
+      "audio": [
+        "44",
+        0
+      ]
+    },
+    "class_type": "PreviewAudio",
+    "_meta": {
+      "title": "预览音频"
+    }
+  },
+  "44": {
+    "inputs": {
+      "denoise_strength": 1,
+      "dereverb_strength": 1,
+      "high_pass_freq": 200,
+      "low_pass_freq": 8000,
+      "normalize": "true",
+      "audio": [
+        "45",
+        0
+      ]
+    },
+    "class_type": "AudioCleanupNode",
+    "_meta": {
+      "title": "Audio Cleaner"
+    }
+  },
+  "45": {
+    "inputs": {
+      "text": "指尖触碰花瓣那一刻，世界突然安静了。",
+      "model_version": "IndexTTS-2",
+      "language": "auto",
+      "speed": 1,
+      "seed": 1757631979,
+      "temperature": 1,
+      "top_p": 0.8,
+      "top_k": 30,
+      "repetition_penalty": 10,
+      "length_penalty": 0,
+      "num_beams": 3,
+      "max_mel_tokens": 600,
+      "sentence_split": "auto",
+      "reference_audio": [
+        "37",
+        0
+      ]
+    },
+    "class_type": "IndexTTSNode",
+    "_meta": {
+      "title": "$text.text!"
+    }
+  },
+  "46": {
+    "inputs": {
+      "filename_prefix": "audio/ComfyUI",
+      "quality": "320k",
+      "audioUI": "/api/view?filename=ComfyUI_00029_.mp3&type=output&subfolder=audio&rand=0.91669430041057",
+      "audio": [
+        "45",
+        0
+      ]
+    },
+    "class_type": "SaveAudioMP3",
+    "_meta": {
+      "title": "保存音频 (MP3)"
+    }
+  }
+}
