@@ -240,7 +240,7 @@ class TTSService(ComfyBaseService):
         # 3. Execute workflow using shared ComfyKit instance from core
         try:
             # Get shared ComfyKit instance (lazy initialization + config hot-reload)
-            kit = await self.core._get_or_create_comfykit()
+            kit = await self.core._get_or_create_comfykit(service_name="tts")
             
             # Determine what to pass to ComfyKit based on source
             if workflow_info["source"] == "runninghub" and "workflow_id" in workflow_info:

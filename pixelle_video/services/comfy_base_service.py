@@ -246,9 +246,10 @@ class ComfyBaseService:
         """
         kit_config = {}
         
-        # ComfyUI URL (priority: param > global config > env > default)
+        # ComfyUI URL (priority: param > service-specific config > global config > env > default)
         final_comfyui_url = (
-            comfyui_url 
+            comfyui_url
+            or self.config.get("comfyui_url")  # Service-specific config (e.g., comfyui.tts.comfyui_url)
             or self.global_config.get("comfyui_url")
             or os.getenv("COMFYUI_BASE_URL")
             or "http://127.0.0.1:8188"

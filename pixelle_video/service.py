@@ -101,21 +101,33 @@ class PixelleVideoCore:
         # Default pipeline callable (for backward compatibility)
         self.generate_video = None
     
-    def _get_comfykit_config(self) -> dict:
+    def _get_comfykit_config(self, service_name: Optional[str] = None) -> dict:
         """
         Get current ComfyKit configuration from config_manager
-        
+
+        Args:
+            service_name: Optional service name ("tts", "image", "video") to get service-specific config
+
         Returns:
             ComfyKit configuration dict
         """
         # Reload config from global config_manager (to support hot reload)
         self.config = config_manager.config.to_dict()
-        
+
         comfyui_config = self.config.get("comfyui", {})
         kit_config = {}
-        
-        if comfyui_config.get("comfyui_url"):
-            kit_config["comfyui_url"] = comfyui_config["comfyui_url"]
+
+        # Determine URL priority: service-specific > global
+        comfyui_url = None
+        if service_name:
+            service_config = comfyui_config.get(service_name, {})
+            comfyui_url = service_config.get("comfyui_url")
+
+        if not comfyui_url:
+            comfyui_url = comfyui_config.get("comfyui_url")
+
+        if comfyui_url:
+            kit_config["comfyui_url"] = comfyui_url
         if comfyui_config.get("comfyui_api_key"):
             kit_config["api_key"] = comfyui_config["comfyui_api_key"]
         if comfyui_config.get("runninghub_api_key"):
@@ -124,7 +136,7 @@ class PixelleVideoCore:
         instance_type = comfyui_config.get("runninghub_instance_type")
         if instance_type and instance_type.strip():
             kit_config["runninghub_instance_type"] = instance_type
-        
+
         return kit_config
     
     def _compute_comfykit_config_hash(self, config: dict) -> str:
@@ -141,40 +153,54 @@ class PixelleVideoCore:
         config_str = json.dumps(config, sort_keys=True)
         return hashlib.md5(config_str.encode()).hexdigest()
     
-    async def _get_or_create_comfykit(self) -> ComfyKit:
+    async def _get_or_create_comfykit(self, service_name: Optional[str] = None) -> ComfyKit:
         """
         Get or create ComfyKit instance (lazy initialization with config change detection)
-        
+
         This method:
         1. Creates ComfyKit on first use (lazy initialization)
         2. Detects configuration changes and recreates instance if needed
-        3. Ensures proper cleanup of old instances
-        
+        3. Supports service-specific ComfyKit instances for different servers
+
+        Args:
+            service_name: Optional service name ("tts", "image", "video") for service-specific config
+
         Returns:
             ComfyKit instance
         """
-        current_config = self._get_comfykit_config()
+        current_config = self._get_comfykit_config(service_name)
         current_hash = self._compute_comfykit_config_hash(current_config)
-        
+
+        # Use different ComfyKit instances for different service configs
+        # Key by config hash to support multiple servers
+        instance_key = f"comfykit_{current_hash}"
+
+        # Get or create the instance dictionary for this config
+        if not hasattr(self, '_comfykit_instances'):
+            self._comfykit_instances = {}
+
         # Check if we need to create or recreate ComfyKit
-        if self._comfykit is None or self._comfykit_config_hash != current_hash:
-            # Close old instance if exists
-            if self._comfykit is not None:
-                logger.info("🔄 ComfyUI configuration changed, recreating ComfyKit instance...")
-                try:
-                    await self._comfykit.close()
-                except Exception as e:
-                    logger.warning(f"Failed to close old ComfyKit instance: {e}")
-                self._comfykit = None
-            
+        if instance_key not in self._comfykit_instances:
+            # Close all old instances if config changed significantly
+            if self._comfykit_instances:
+                logger.info("🔄 ComfyUI configuration changed, recreating ComfyKit instances...")
+                for key, instance in list(self._comfykit_instances.items()):
+                    if key != instance_key:
+                        try:
+                            await instance.close()
+                        except Exception as e:
+                            logger.warning(f"Failed to close old ComfyKit instance: {e}")
+                self._comfykit_instances.clear()
+
             # Create new instance with current config
-            logger.info("✨ Creating ComfyKit instance...")
+            service_info = f" for {service_name}" if service_name else ""
+            logger.info(f"✨ Creating ComfyKit instance{service_info}...")
             logger.debug(f"ComfyKit config: {current_config}")
-            self._comfykit = ComfyKit(**current_config)
-            self._comfykit_config_hash = current_hash
-            logger.info("✅ ComfyKit instance created")
-        
-        return self._comfykit
+            logger.info(f"📡 ComfyUI URL: {current_config.get('comfyui_url', 'default')}")
+            self._comfykit_instances[instance_key] = ComfyKit(**current_config)
+            logger.info(f"✅ ComfyKit instance{service_info} created")
+
+        return self._comfykit_instances[instance_key]
     
     async def initialize(self):
         """
@@ -221,18 +247,27 @@ class PixelleVideoCore:
     
     async def cleanup(self):
         """
-        Cleanup resources (close ComfyKit session)
-        
+        Cleanup resources (close all ComfyKit sessions)
+
         Example:
             await pixelle_video.cleanup()
         """
-        if self._comfykit:
-            logger.info("🧹 Closing ComfyKit session...")
+        if hasattr(self, '_comfykit_instances') and self._comfykit_instances:
+            logger.info("🧹 Closing all ComfyKit sessions...")
+            for key, instance in list(self._comfykit_instances.items()):
+                try:
+                    await instance.close()
+                except Exception as e:
+                    logger.error(f"Failed to close ComfyKit instance {key}: {e}")
+            self._comfykit_instances.clear()
+            logger.info("✅ All ComfyKit sessions closed")
+
+        # Clean up legacy _comfykit if exists
+        if hasattr(self, '_comfykit') and self._comfykit is not None:
             try:
                 await self._comfykit.close()
-                logger.info("✅ ComfyKit session closed")
             except Exception as e:
-                logger.error(f"Failed to close ComfyKit: {e}")
+                logger.error(f"Failed to close legacy ComfyKit: {e}")
             finally:
                 self._comfykit = None
                 self._comfykit_config_hash = None

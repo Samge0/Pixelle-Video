@@ -40,9 +40,10 @@ class TTSComfyUIConfig(BaseModel):
 class TTSSubConfig(BaseModel):
     """TTS-specific configuration (under comfyui.tts)"""
     inference_mode: str = Field(default="local", description="TTS inference mode: 'local' or 'comfyui'")
+    comfyui_url: Optional[str] = Field(default=None, description="TTS-specific ComfyUI server URL (overrides global comfyui_url)")
     local: TTSLocalConfig = Field(default_factory=TTSLocalConfig, description="Local TTS (Edge TTS) configuration")
     comfyui: TTSComfyUIConfig = Field(default_factory=TTSComfyUIConfig, description="ComfyUI TTS configuration")
-    
+
     # Backward compatibility: keep default_workflow at top level
     @property
     def default_workflow(self) -> Optional[str]:
@@ -53,6 +54,7 @@ class TTSSubConfig(BaseModel):
 class ImageSubConfig(BaseModel):
     """Image-specific configuration (under comfyui.image)"""
     default_workflow: Optional[str] = Field(default=None, description="Default image workflow (optional)")
+    comfyui_url: Optional[str] = Field(default=None, description="Image-specific ComfyUI server URL (overrides global comfyui_url)")
     prompt_prefix: str = Field(
         default="Minimalist black-and-white matchstick figure style illustration, clean lines, simple sketch style",
         description="Prompt prefix for all image generation"
@@ -62,6 +64,7 @@ class ImageSubConfig(BaseModel):
 class VideoSubConfig(BaseModel):
     """Video-specific configuration (under comfyui.video)"""
     default_workflow: Optional[str] = Field(default=None, description="Default video workflow (optional)")
+    comfyui_url: Optional[str] = Field(default=None, description="Video-specific ComfyUI server URL (overrides global comfyui_url)")
     prompt_prefix: str = Field(
         default="Minimalist black-and-white matchstick figure style illustration, clean lines, simple sketch style",
         description="Prompt prefix for all video generation"
