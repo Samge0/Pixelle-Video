@@ -60,5 +60,5 @@ jobs:
           # 给清单打上多个标签
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/pixelle-video:${{ steps.date.outputs.today }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/pixelle-video:v1.0.0
+            ${{ secrets.DOCKERHUB_USERNAME }}/pixelle-video:v1.0.1
             ${{ secrets.DOCKERHUB_USERNAME }}/pixelle-video:latest
