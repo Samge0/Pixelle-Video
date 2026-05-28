@@ -277,37 +277,19 @@ class PersistenceService:
             List of metadata dicts, sorted by created_at descending
         """
         try:
-            tasks = []
-            
-            # Scan all task directories
-            for task_dir in self.output_dir.iterdir():
-                if not task_dir.is_dir():
-                    continue
-                
-                metadata_path = task_dir / "metadata.json"
-                if not metadata_path.exists():
-                    continue
-                
-                try:
-                    with open(metadata_path, "r", encoding="utf-8") as f:
-                        metadata = json.load(f)
-                    
-                    # Filter by status
-                    if status and metadata.get("status") != status:
-                        continue
-                    
-                    tasks.append(metadata)
-                    
-                except Exception as e:
-                    logger.warning(f"Failed to load metadata from {task_dir}: {e}")
-                    continue
-            
+            index = self._load_index()
+            tasks = index.get("tasks", [])
+
+            # Filter by status
+            if status:
+                tasks = [t for t in tasks if t.get("status") == status]
+
             # Sort by created_at descending
             tasks.sort(key=lambda t: t.get("created_at", ""), reverse=True)
-            
+
             # Apply pagination
             return tasks[offset:offset + limit]
-            
+
         except Exception as e:
             logger.error(f"Failed to list tasks: {e}")
             return []
@@ -315,26 +297,7 @@ class PersistenceService:
     async def task_exists(self, task_id: str) -> bool:
         """Check if task exists"""
         return self.get_task_dir(task_id).exists()
-    
-    async def delete_task(self, task_id: str):
-        """
-        Delete task directory and all files
-        
-        Args:
-            task_id: Task ID
-        """
-        try:
-            task_dir = self.get_task_dir(task_id)
-            
-            if task_dir.exists():
-                import shutil
-                shutil.rmtree(task_dir)
-                logger.info(f"Deleted task: {task_id}")
-            
-        except Exception as e:
-            logger.error(f"Failed to delete task {task_id}: {e}")
-            raise
-    
+
     # ========================================================================
     # Serialization Helpers
     # ========================================================================

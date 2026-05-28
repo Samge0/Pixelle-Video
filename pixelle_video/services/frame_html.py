@@ -308,6 +308,7 @@ class HTMLFrameGenerator:
     _browser_lock = asyncio.Lock()
     _browser_init_attempts = 0
     _max_init_attempts = 3
+    _browser_loop = None  # Track which event loop owns the browser (Windows Streamlit fix)
 
     @classmethod
     async def _ensure_browser(cls):
@@ -320,11 +321,20 @@ class HTMLFrameGenerator:
         - Browser rebuild on disconnection
         """
         async with cls._browser_lock:
+            # Track event loop for cross-loop detection (Windows Streamlit fix)
+            current_loop = asyncio.get_running_loop()
+
             # Try to use existing browser if it's healthy
             if cls._browser is not None:
                 try:
-                    # Verify browser is still connected
-                    if await cls._validate_browser_connection():
+                    # Check cross-loop: browser was created on a different event loop
+                    if cls._browser_loop is not None and cls._browser_loop is not current_loop:
+                        logger.warning(
+                            "Detected cross-loop Playwright browser reuse; "
+                            "recreating browser for current event loop"
+                        )
+                        await cls._cleanup_browser()
+                    elif await cls._validate_browser_connection():
                         return cls._browser
                     else:
                         logger.warning("Browser disconnected, will rebuild...")
@@ -345,7 +355,6 @@ class HTMLFrameGenerator:
                             '--disable-dev-shm-usage',
                             '--disable-gpu',
                             '--disable-extensions',
-                            '--disable-dev-shm-usage',
                             '--remote-debugging-port=0',  # Disable remote debugging
                         ]
                     )
@@ -353,6 +362,7 @@ class HTMLFrameGenerator:
                     # Validate the new browser
                     if await cls._validate_browser_connection():
                         cls._browser_init_attempts = 0
+                        cls._browser_loop = current_loop
                         logger.info("✓ Playwright Chromium browser initialized successfully")
                         return cls._browser
                     else:
@@ -405,6 +415,7 @@ class HTMLFrameGenerator:
                 except Exception as e:
                     logger.debug(f"Error stopping playwright: {e}")
                 cls._playwright = None
+                cls._browser_loop = None
         except Exception as e:
             logger.debug(f"Error during cleanup: {e}")
 
@@ -423,6 +434,7 @@ class HTMLFrameGenerator:
             await cls._cleanup_browser()
             cls._browser = None
             # Next _ensure_browser call will initialize fresh
+            cls._browser_loop = None
 
     async def generate_frame(
         self,
@@ -535,7 +547,9 @@ class HTMLFrameGenerator:
                 else:
                     # All attempts failed
                     logger.error(f"Failed to render HTML template after {max_retries} attempts")
-                    raise RuntimeError(f"HTML rendering failed after {max_retries} attempts: {e}")
+                    raise RuntimeError(
+                        f"HTML rendering failed after {max_retries} attempts: {type(e).__name__}: {e}"
+                    ) from e
 
             finally:
                 # Ensure page is closed
