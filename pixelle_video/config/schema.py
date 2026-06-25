@@ -56,7 +56,7 @@ class ImageSubConfig(BaseModel):
     default_workflow: Optional[str] = Field(default=None, description="Default image workflow (optional)")
     comfyui_url: Optional[str] = Field(default=None, description="Image-specific ComfyUI server URL (overrides global comfyui_url)")
     prompt_prefix: str = Field(
-        default="Minimalist black-and-white matchstick figure style illustration, clean lines, simple sketch style",
+        default="3D Pixar-style animation, vibrant colors, smooth lighting, cartoon character, high quality render",
         description="Prompt prefix for all image generation"
     )
 
@@ -66,7 +66,7 @@ class VideoSubConfig(BaseModel):
     default_workflow: Optional[str] = Field(default=None, description="Default video workflow (optional)")
     comfyui_url: Optional[str] = Field(default=None, description="Video-specific ComfyUI server URL (overrides global comfyui_url)")
     prompt_prefix: str = Field(
-        default="Minimalist black-and-white matchstick figure style illustration, clean lines, simple sketch style",
+        default="3D Pixar-style animation, vibrant colors, smooth lighting, cartoon character, high quality render",
         description="Prompt prefix for all video generation"
     )
 

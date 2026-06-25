@@ -41,10 +41,64 @@ IMAGE_STYLE_PRESETS = {
         "description": "conceptual visual metaphors, symbolic elements, thought-provoking imagery, artistic interpretation",
         "use_case": "Deep content, philosophical thinking"
     },
+
+    "pixar_3d": {
+        "name": "3D Pixar Animation",
+        "description": "3D Pixar-style animation, vibrant colors, smooth lighting, cartoon character, high quality render",
+        "use_case": "Vivid and engaging, suitable for most scenarios"
+    },
+
+    "anime": {
+        "name": "Japanese Anime",
+        "description": "Anime style illustration, vibrant colors, cel shading, Japanese anime art style, detailed background",
+        "use_case": "Youthful and energetic, Japanese comic style"
+    },
+
+    "watercolor": {
+        "name": "Watercolor Illustration",
+        "description": "Watercolor painting style illustration, soft colors, artistic brush strokes, dreamy atmosphere",
+        "use_case": "Artistic and warm, storytelling"
+    },
+
+    "photorealistic": {
+        "name": "Photorealistic",
+        "description": "Photorealistic, cinematic lighting, 8K quality, natural colors, professional photography",
+        "use_case": "Realistic scenes, documentary style"
+    },
+
+    "flat_design": {
+        "name": "Flat Design",
+        "description": "Flat design illustration, bold geometric shapes, modern color palette, minimalist UI style",
+        "use_case": "Modern and clean, business presentations"
+    },
+
+    "dark_gothic": {
+        "name": "Dark Gothic",
+        "description": "Dark gothic art style, moody atmosphere, dramatic shadows, intricate details, fantasy theme",
+        "use_case": "Mysterious and dramatic, horror/fantasy themes"
+    },
+
+    "pencil_sketch": {
+        "name": "Hand-drawn Pencil Sketch",
+        "description": "Hand-drawn pencil sketch style, detailed line work, artistic shading, warm paper texture",
+        "use_case": "Artistic and warm, handcrafted feel"
+    },
+
+    "chinese_ink": {
+        "name": "Chinese Ink Wash",
+        "description": "Chinese ink wash painting style, traditional art, elegant brush strokes, rice paper texture",
+        "use_case": "Traditional Chinese aesthetic, elegant"
+    },
+
+    "chibi_kawaii": {
+        "name": "Chibi Kawaii",
+        "description": "Chibi kawaii style illustration, cute proportions, pastel colors, adorable character design",
+        "use_case": "Cute and playful, social media content"
+    },
 }
 
-# Default preset
-DEFAULT_IMAGE_STYLE = "stick_figure"
+# Default preset (changed from stick_figure to pixar_3d)
+DEFAULT_IMAGE_STYLE = "pixar_3d"
 
 
 IMAGE_PROMPT_GENERATION_PROMPT = """# Role Definition
