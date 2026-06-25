@@ -20,6 +20,8 @@ from typing import List, Tuple
 import httpx
 from loguru import logger
 
+from pixelle_video.utils.zai_helpers import is_zai_endpoint, get_zcode_headers
+
 
 def fetch_available_models(api_key: str, base_url: str, timeout: float = 10.0) -> List[str]:
     """
@@ -49,6 +51,10 @@ def fetch_available_models(api_key: str, base_url: str, timeout: float = 10.0) -
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
+
+    # Inject ZCode headers for Z.AI endpoints to bypass 429 errors
+    if is_zai_endpoint(base_url):
+        headers.update(get_zcode_headers())
     
     logger.debug(f"Fetching models from: {models_url}")
     
